@@ -142,9 +142,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderColor: colors.border,
   },
   outlineButton: {
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.primaryColor,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.cardBackground,
     shadowOpacity: 0.05,
   },
   ghostButton: {

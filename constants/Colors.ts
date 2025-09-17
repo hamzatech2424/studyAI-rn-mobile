@@ -29,6 +29,7 @@ export const Colors = {
     tabIconSelected: tintColorLight,
     cardBackground: "#ffffff",
     shadow: "rgba(0, 0, 0, 0.1)",
+    primaryBorder:"lightgrey",
   },
   dark: {
     text: "#f8fafc",
@@ -52,5 +53,6 @@ export const Colors = {
     tabIconSelected: tintColorDark,
     cardBackground: "#1e293b",
     shadow: "rgba(0, 0, 0, 0.3)",
+     primaryBorder:"#6366f1"
   },
 };

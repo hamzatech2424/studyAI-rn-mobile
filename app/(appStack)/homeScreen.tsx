@@ -1,18 +1,22 @@
 import { logOut } from '@/controllerHooks/authController';
 import useAuthController from '@/controllerHooks/useAuthController';
+import useConversationController from '@/controllerHooks/useConversationController';
 import { errorToast } from '@/utils';
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { MotiView } from "moti";
+import React, { useEffect, useState } from 'react';
+import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { useColors } from '../../hooks/useColors';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import CustomButton from '../components/abstract/abstractButton';
+import AbstractContentContainer from '../components/abstract/abstractContentContainer';
+import ConversationItem from '../components/module/conversationItem';
 
 const HomeScreen = () => {
     const { signOut, userId } = useAuth();
@@ -20,13 +24,27 @@ const HomeScreen = () => {
     const styles = useThemedStyles(createStyles);
     const { colors, isDark } = useColors();
     const { syncUserHandler } = useAuthController();
+    const { getConversationsHandler } = useConversationController();
+    const [initialLoading, setInitialLoading] = useState(true)
     const userData = useSelector((state: any) => state.auth.user);
+    const conversations = useSelector((state: any) => state.conversation.conversations);
+    const [refreshing, setRefreshing] = useState(false)
+
+
 
     useEffect(() => {
         syncUserHandler((data: any) => {
             console.log("User Synced Successfully")
+            getConversationsHandler((data: any) => {
+                console.log("Conversations Fetched Successfully", data)
+                setInitialLoading(false)
+            },
+                (error: any) => {
+                    setInitialLoading(false)
+                    errorToast(error)
+                }
+            )
         }, (error: any) => {
-            console.log("error==>>", error)
             errorToast(error)
         })
     }, [])
@@ -62,6 +80,16 @@ const HomeScreen = () => {
         );
     };
 
+    const handleRefresh = () => {
+        setRefreshing(true)
+        getConversationsHandler(() => {
+            console.log("Conversations Refreshed Successfully")
+            setRefreshing(false)
+        }, (error: any) => {
+            errorToast(error)
+            setRefreshing(false)
+        })
+    }
 
     return (
         <View style={styles.container}>
@@ -73,7 +101,8 @@ const HomeScreen = () => {
                 }
                 style={styles.gradient}
             >
-                <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+                <AbstractContentContainer style={{ flex: 1 }}>
+                    <View style={{ height: insets.top }} />
                     <View style={styles.headerContent}>
                         <View style={styles.logoContainer}>
                             <View style={styles.logoBackground}>
@@ -101,33 +130,75 @@ const HomeScreen = () => {
                             }
                         />
                     </View>
-                </View>
 
-                <View style={styles.content}>
-                    <View style={styles.welcomeContainer}>
-                        <Ionicons
-                            name="checkmark-circle"
-                            size={80}
-                            color={colors.success}
+                    {initialLoading ?
+                        <ScrollView>
+                            {[1, 2, 3, 4, 5, 6, 7].map((item, index) => {
+                                return (
+                                    <MotiView
+                                        key={item}
+                                        from={{ opacity: 0.1 }}
+                                        animate={{ opacity: 0.5 }}
+                                        transition={{
+                                            type: "spring",
+                                            duration: 1000,
+                                            loop: true,
+                                            repeatReverse: true,
+                                        }}
+                                        style={{
+                                            width: "99%",
+                                            height: 90,
+                                            alignSelf:'center',
+                                            borderRadius: 16,
+                                            marginTop: 20,
+                                            backgroundColor: "lightgrey",
+                                        }}
+                                    />
+                                )
+                            })}
+                        </ScrollView>
+                        :
+                        <FlatList
+                            data={conversations}
+                            contentContainerStyle={{ flex: 1 }}
+                            keyExtractor={(item) => item?.id}
+                            renderItem={({ item }) => <ConversationItem item={item} />}
+                            showsVerticalScrollIndicator={false}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={refreshing}
+                                    onRefresh={handleRefresh}
+                                    tintColor={"#6366f1"}
+                                    title="Pull to refresh" 
+                                    titleColor={"#6366f1"} 
+                                />
+                            }
+                            ListEmptyComponent={
+                                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                    <Text>No conversations found</Text>
+                                    <CustomButton
+                                        title="Refresh"
+                                        variant="outline"
+                                        size="small"
+                                        onPress={handleRefresh}
+                                    />
+                                </View>
+                            }
                         />
-                        <Text style={styles.welcomeTitle}>Welcome to StudyAI!</Text>
-                        <Text style={styles.welcomeSubtitle}>
-                            You have successfully signed in and verified your email.
-                        </Text>
-                    </View>
+                    }
 
-                    {/* Token Information */}
-                    <View style={styles.infoContainer}>
-                        <Text style={styles.infoTitle}>Session Information</Text>
+                    <TouchableOpacity 
+                    activeOpacity={0.9}
+                    onPress={() => router.push('/(appStack)/conversationScreen')}
+                    style={{width:55,height:55,backgroundColor:colors.primaryColor,borderRadius:20,alignItems:"center",justifyContent:"center",position:"absolute",bottom:30,right:0}}>
+                        <Ionicons
+                            name="add"
+                            size={24}
+                            color={colors.background}
+                        />
+                    </TouchableOpacity>
 
-                        <View style={styles.infoItem}>
-                            <Ionicons name="person-outline" size={20} color={colors.primaryColor} />
-                            <Text style={styles.infoText}>User ID: {userId || 'Loading...'}</Text>
-                        </View>
-                    </View>
-
-
-                </View>
+                </AbstractContentContainer>
             </LinearGradient>
         </View>
     );
@@ -140,10 +211,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     gradient: {
         flex: 1,
-    },
-    header: {
-        paddingHorizontal: 24,
-        paddingBottom: 20,
     },
     headerContent: {
         flexDirection: 'row',

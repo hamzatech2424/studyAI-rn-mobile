@@ -1,5 +1,6 @@
 import { createStackNavigator } from '@react-navigation/stack';
 import React from 'react';
+import ConversationScreen from './conversationScreen';
 import HomeScreen from './homeScreen';
 
 
@@ -17,7 +18,15 @@ export default function AuthStack() {
                 }}
             />
 
-    
+            <Stack.Screen
+                name="conversationScreen"
+                component={ConversationScreen}
+                options={{
+                    animation: 'slide_from_right'
+                }}
+            />
+
+
 
         </Stack.Navigator>
     );

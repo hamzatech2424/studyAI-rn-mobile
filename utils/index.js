@@ -19,7 +19,6 @@ const errorToast = (message) => {
 
 function formatDateTimeV2(inputDate) {
     const inputDateTime = new Date(inputDate);
-
     const month = (inputDateTime.getMonth() + 1).toString().padStart(2, '0');
     const day = inputDateTime.getDate().toString().padStart(2, '0');
     const year = inputDateTime.getFullYear();
