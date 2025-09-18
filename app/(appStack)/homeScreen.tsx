@@ -96,7 +96,7 @@ const HomeScreen = () => {
             <StatusBar style={isDark ? "light" : "dark"} />
             <LinearGradient
                 colors={isDark
-                    ? [colors.background, colors.surface]
+                    ? [colors.background, colors.background]
                     : [colors.surface, colors.background]
                 }
                 style={styles.gradient}
@@ -162,7 +162,8 @@ const HomeScreen = () => {
                             data={conversations}
                             contentContainerStyle={{ flex: 1 }}
                             keyExtractor={(item) => item?.id}
-                            renderItem={({ item }) => <ConversationItem item={item} />}
+                            renderItem={({ item }) => <ConversationItem item={item} 
+                            onPress={() => router.push('/(appStack)/conversationScreen')} />}
                             showsVerticalScrollIndicator={false}
                             refreshControl={
                                 <RefreshControl
