@@ -1,5 +1,5 @@
 import { BASE_URL } from '@/proxy';
-import { TOKEN_KEY, useApiClient } from '@/services/apiClient';
+import { TOKEN_KEY } from '@/services/apiClient';
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +31,6 @@ const NewChatScreen = () => {
     const insets = useSafeAreaInsets();
     const styles = useThemedStyles(createStyles);
     const { colors, isDark } = useColors();
-    const apiClient = useApiClient();
     const { getToken } = useAuth();
     
     const [selectedFile, setSelectedFile] = useState(null);
@@ -88,10 +87,23 @@ const NewChatScreen = () => {
             const result = await DocumentPicker.getDocumentAsync({
                 type: 'application/pdf',
                 copyToCacheDirectory: true,
+                multiple: false,
             });
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const file = result.assets[0];
+                
+                // Check file size (4MB = 4 * 1024 * 1024 bytes)
+                const maxSize = 4 * 1024 * 1024; // 4MB in bytes
+                if (file.size > maxSize) {
+                    Alert.alert(
+                        'File Too Large',
+                        'Please select a PDF file that is 4MB or smaller.',
+                        [{ text: 'OK' }]
+                    );
+                    return;
+                }
+                
                 setSelectedFile(file);
                 
                 // Start upload with progress tracking
@@ -140,6 +152,41 @@ const NewChatScreen = () => {
             xhr.open("POST", `${BASE_URL}/api/document/upload-stream`);
             xhr.setRequestHeader("Authorization", `Bearer ${token}`);
             xhr.setRequestHeader("Accept", "text/event-stream");
+            
+            // Set timeout for the request (30 seconds)
+            xhr.timeout = 30000;
+            
+            // Handle timeout
+            xhr.ontimeout = () => {
+                console.error("❌ Request timeout");
+                updateState({
+                    uploading: false,
+                    message: 'Request timeout'
+                });
+                
+                // Use setTimeout to ensure Alert is shown after state update
+                setTimeout(() => {
+                    Alert.alert(
+                        "Request Timeout",
+                        "The server is taking too long to respond. Please check your connection and try again.",
+                        [
+                            {
+                                text: "Retry",
+                                onPress: () => {
+                                    setSelectedFile(null);
+                                    setUploadComplete(false);
+                                    setConversationId(null);
+                                }
+                            },
+                            {
+                                text: "Cancel",
+                                style: "cancel"
+                            }
+                        ]
+                    );
+                }, 100);
+                reject(new Error("Request timeout"));
+            };
       
             // Local upload progress (file → server)
             xhr.upload.onprogress = (event) => {
@@ -164,7 +211,7 @@ const NewChatScreen = () => {
                 if (line.startsWith("data: ")) {
                   try {
                     const data = JSON.parse(line.slice(6));
-                                console.log("�� Server progress:", data);
+                                console.log("📊 Server progress:", data);
                                 
                     if (data.progress) {
                                     // Map server progress to 25-100% range
@@ -173,9 +220,6 @@ const NewChatScreen = () => {
                                         progress: mappedProgress,
                                         message: data.message || `Processing... ${data.progress}%`,
                       });
-                                    
-                                    // Update progress bar animation
-                                    // updateProgressBar(mappedProgress); // REMOVED
                     }
                                 
                     if (data.success) {
@@ -196,10 +240,57 @@ const NewChatScreen = () => {
                                         uploading: false,
                                         message: 'Upload failed'
                                     });
-                      reject(new Error(data.error.message || "Upload failed"));
+                                    
+                                    // Show backend error to user
+                                    const errorMessage = data.error.message || data.error.details || data.error || "Upload failed";
+                                    console.log("🚨 Showing error alert:", errorMessage);
+                                    
+                                    // Use setTimeout to ensure Alert is shown after state update
+                                    setTimeout(() => {
+                                        Alert.alert(
+                                            "Upload Error",
+                                            errorMessage,
+                                            [
+                                                {
+                                                    text: "OK",
+                                                    onPress: () => {
+                                                        // Reset file selection on error
+                                                        setSelectedFile(null);
+                                                        setUploadComplete(false);
+                                                        setConversationId(null);
+                                                    }
+                                                }
+                                            ]
+                                        );
+                                    }, 100);
+                      reject(new Error(errorMessage));
                     }
                   } catch (e) {
                                 console.error("❌ Parse error:", e, "Line:", line);
+                                // If we can't parse the response, it might be a server crash
+                                updateState({
+                                    uploading: false,
+                                    message: 'Server response error'
+                                });
+                                
+                                // Use setTimeout to ensure Alert is shown after state update
+                                setTimeout(() => {
+                                    Alert.alert(
+                                        "Server Error",
+                                        "The server returned an invalid response. This might indicate a server issue. Please try again later.",
+                                        [
+                                            {
+                                                text: "OK",
+                                                onPress: () => {
+                                                    setSelectedFile(null);
+                                                    setUploadComplete(false);
+                                                    setConversationId(null);
+                                                }
+                                            }
+                                        ]
+                                    );
+                                }, 100);
+                                reject(new Error("Invalid server response"));
                   }
                 }
               }
@@ -211,6 +302,28 @@ const NewChatScreen = () => {
                         uploading: false,
                         message: 'Network error'
                     });
+                    
+                    // Use setTimeout to ensure Alert is shown after state update
+                    setTimeout(() => {
+                        Alert.alert(
+                            "Connection Error",
+                            "Unable to connect to the server. This could be due to:\n\n• Poor internet connection\n• Server is down\n• Network firewall blocking the request\n\nPlease check your connection and try again.",
+                            [
+                                {
+                                    text: "Retry",
+                                    onPress: () => {
+                                        setSelectedFile(null);
+                                        setUploadComplete(false);
+                                        setConversationId(null);
+                                    }
+                                },
+                                {
+                                    text: "Cancel",
+                                    style: "cancel"
+                                }
+                            ]
+                        );
+                    }, 100);
                     reject(new Error("Network error"));
                 };
 
@@ -221,6 +334,52 @@ const NewChatScreen = () => {
                             uploading: false,
                             message: `HTTP error: ${xhr.status}`
                         });
+                        
+                        let errorMessage = "Upload failed";
+                        let errorTitle = "Upload Error";
+                        
+                        if (xhr.status === 401) {
+                            errorMessage = "Your session has expired. Please login again.";
+                            errorTitle = "Authentication Error";
+                        } else if (xhr.status === 403) {
+                            errorMessage = "You don't have permission to upload files.";
+                            errorTitle = "Permission Denied";
+                        } else if (xhr.status === 413) {
+                            errorMessage = "File is too large. Please select a file smaller than 4MB.";
+                            errorTitle = "File Too Large";
+                        } else if (xhr.status === 415) {
+                            errorMessage = "Unsupported file type. Please select a PDF file.";
+                            errorTitle = "Invalid File Type";
+                        } else if (xhr.status === 429) {
+                            errorMessage = "Too many requests. Please wait a moment and try again.";
+                            errorTitle = "Rate Limited";
+                        } else if (xhr.status >= 500) {
+                            errorMessage = "The server is experiencing issues. Please try again in a few minutes.";
+                            errorTitle = "Server Error";
+                        } else if (xhr.status === 0) {
+                            errorMessage = "Unable to connect to the server. Please check your internet connection.";
+                            errorTitle = "Connection Failed";
+                        }
+                        
+                        console.log("🚨 Showing HTTP error alert:", errorMessage);
+                        
+                        // Use setTimeout to ensure Alert is shown after state update
+                        setTimeout(() => {
+                            Alert.alert(
+                                errorTitle,
+                                errorMessage,
+                                [
+                                    {
+                                        text: "OK",
+                                        onPress: () => {
+                                            setSelectedFile(null);
+                                            setUploadComplete(false);
+                                            setConversationId(null);
+                                        }
+                                    }
+                                ]
+                            );
+                        }, 100);
                         reject(new Error(`HTTP error: ${xhr.status}`));
                     }
                 };
@@ -229,56 +388,58 @@ const NewChatScreen = () => {
             xhr.send(formData);
           });
 
-        } catch (err) {
+        } catch (err: any) {
           console.error("❌ Upload failed:", err);
             updateState({
                 uploading: false,
                 message: 'Upload failed'
             });
-          Alert.alert("Upload Error", err.message);
+            
+            // Determine error type and show appropriate message
+            let errorMessage = "An unexpected error occurred. Please try again.";
+            let errorTitle = "Upload Error";
+            
+            if (err.message?.includes("timeout")) {
+                errorMessage = "The request timed out. Please check your connection and try again.";
+                errorTitle = "Request Timeout";
+            } else if (err.message?.includes("Network")) {
+                errorMessage = "Network error. Please check your internet connection.";
+                errorTitle = "Network Error";
+            } else if (err.message?.includes("server")) {
+                errorMessage = "Server error. Please try again later.";
+                errorTitle = "Server Error";
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+            
+            console.log("🚨 Showing catch error alert:", errorMessage);
+            
+            // Use setTimeout to ensure Alert is shown after state update
+            setTimeout(() => {
+                Alert.alert(
+                    errorTitle, 
+                    errorMessage,
+                    [
+                        {
+                            text: "Retry",
+                            onPress: () => {
+                                setSelectedFile(null);
+                                setUploadComplete(false);
+                                setConversationId(null);
+                            }
+                        },
+                        {
+                            text: "Cancel",
+                            style: "cancel"
+                        }
+                    ]
+                );
+            }, 100);
         }
       };
 
-    // Update the progress display to show detailed progress:
-    // const updateProgressBar = (progress) => { // REMOVED
-    //     console.log(`🎯 Updating progress bar to: ${progress}%`);
-        
-    //     Animated.timing(animatedProgress, {
-    //         toValue: progress / 100,
-    //         duration: 500,
-    //         useNativeDriver: false,
-    //     }).start();
-    // };
-
-    const handleUploadSuccess = (data) => {
-        setIsUploading(false);
-        setUploadComplete(true);
-        setUploadMessage(data.message || 'Upload completed successfully!');
-        
-        // Extract chat ID from the response
-        const chatId = data.chat?.id;
-        if (chatId) {
-            setConversationId(chatId);
-        }
-    };
-
-    const handleUploadError = (errorMessage) => {
-        setIsUploading(false);
-        setUploadComplete(false);
-        setUploadMessage('Upload failed');
-        
-        // Handle different error formats
-        let displayMessage = errorMessage;
-        if (typeof errorMessage === 'object') {
-            displayMessage = errorMessage.message || errorMessage.description || 'Upload failed';
-        }
-        
-        Alert.alert('Upload Error', displayMessage);
-    };
-
     const handleStartConversation = () => {
         if (uploadComplete && conversationId) {
-            // Navigate to conversation screen with the created conversation
             navigation.navigate('conversationScreen', { chatId: conversationId })
         }
     };
@@ -412,10 +573,10 @@ const NewChatScreen = () => {
                                         </View>
                                         <View style={styles.fileDetails}>
                                             <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2}>
-                                                {selectedFile.name}
+                                                {selectedFile?.name}
                                             </Text>
                                             <Text style={[styles.fileSize, { color: colors.placeholder }]}>
-                                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                                {(selectedFile?.size / 1024 / 1024).toFixed(2)} MB
                                             </Text>
                                         </View>
                                     </View>
@@ -468,25 +629,6 @@ const NewChatScreen = () => {
                                                         borderRadius: 4
                                                     }
                                                 ]} />
-                                                
-                                                {/* Shimmer effect */}
-                                                {/* {isUploading && (
-                                                    <Animated.View style={[
-                                                        styles.progressShimmer,
-                                                        {
-                                                            position: 'absolute',
-                                                            top: 0,
-                                                            left: 0,
-                                                            height: '100%',
-                                                            backgroundColor: 'rgba(255,255,255,0.4)',
-                                                            width: animatedProgress.interpolate({
-                                                                inputRange: [0, 1],
-                                                                outputRange: ['0%', '100%'],
-                                                            }),
-                                                            borderRadius: 4
-                                                        }
-                                                    ]} />
-                                                )} */}
                                             </View>
                                             
                                             {/* Progress Steps */}
@@ -546,11 +688,6 @@ const NewChatScreen = () => {
                                                     </View>
                                                 ))}
                                             </View>
-                                            
-                                            {/* Debug info - remove in production */}
-                                            {/* <Text style={{ color: colors.placeholder, fontSize: 10, marginTop: 8, textAlign: 'center' }}>
-                                                Debug: {uploadingRef.current ? 'Uploading' : 'Idle'} | Progress: {progressRef.current}%
-                                            </Text> */}
                                         </View>
                                     )}
 
@@ -644,23 +781,6 @@ const NewChatScreen = () => {
                     <View style={{ height: insets.bottom }} />
                 </AbstractContentContainer>
             </LinearGradient>
-            {/* Add this temporarily for debugging - remove after testing
-            {isUploading && (
-                <View style={{ 
-                    position: 'absolute', 
-                    top: 100, 
-                    left: 20, 
-                    right: 20, 
-                    backgroundColor: 'rgba(0,0,0,0.8)', 
-                    padding: 10, 
-                    borderRadius: 5,
-                    zIndex: 1000
-                }}>
-                    <Text style={{ color: 'white', fontSize: 12 }}>
-                        DEBUG: Progress: {uploadProgress}% | Message: {uploadMessage}
-                    </Text>
-                </View>
-            )} */}
         </View>
     );
 };

@@ -6,7 +6,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useThemedStyles } from '../../../hooks/useThemedStyles';
 
-const ConversationItem = ({ item, onPress }: { item: any, onPress: () => void }) => {
+const ConversationItem = ({ item,index, onPress }: { item: any, index: number, onPress: () => void }) => {
     const styles = useThemedStyles(createStyles);
     const { colors, isDark } = useColors();
 
@@ -50,7 +50,7 @@ const ConversationItem = ({ item, onPress }: { item: any, onPress: () => void })
                 duration: 500,
                 delay: Math.random() * 150,
             }}
-            style={styles.container}
+            style={[styles.container, { marginTop: index === 0 ? 10 : 20 }]}
         >
             <TouchableOpacity
                 activeOpacity={0.9}

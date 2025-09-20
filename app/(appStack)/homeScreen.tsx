@@ -37,6 +37,7 @@ const HomeScreen = () => {
 
 
 
+
     useEffect(() => {
         if (isFocused) {
             syncUserHandler((data: any) => {
@@ -99,6 +100,13 @@ const HomeScreen = () => {
         })
     }
 
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 17) return 'Good Afternoon';
+        return 'Good Evening';
+    };
+
     return (
         <View style={styles.container}>
             <StatusBar style={isDark ? "light" : "dark"} />
@@ -111,32 +119,54 @@ const HomeScreen = () => {
             >
                 <AbstractContentContainer style={{ flex: 1 }}>
                     <View style={{ height: insets.top }} />
-                    <View style={styles.headerContent}>
-                        <View style={styles.logoContainer}>
-                            <View style={styles.logoBackground}>
+
+                    {/* Compact Modern Header */}
+                    <View style={styles.compactHeader}>
+                        <View style={styles.headerLeft}>
+                            <LinearGradient
+                                colors={isDark
+                                    ? [colors.primaryColor, '#8B5CF6']
+                                    : [colors.primaryColor, '#8B5CF6']
+                                }
+                                style={styles.logoContainer}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                            >
                                 <Ionicons
                                     name="library"
-                                    size={24}
-                                    color={colors.primaryColor}
+                                    size={20}
+                                    color="white"
                                 />
+                            </LinearGradient>
+                            <View style={styles.brandContainer}>
+                                <Text style={[styles.brandText, { color: colors.text }]}>StudyAI</Text>
+                                {userData?.first_name && userData?.last_name ?
+                                    <Text style={[styles.greetingText, { color: colors.text }]}>
+                                        {getGreeting()}, {userData?.first_name + ' ' + userData?.last_name || 'User'}
+                                    </Text>
+                                    :
+                                    <Text style={[styles.greetingText, { color: colors.text }]}>
+                                        {getGreeting()},
+                                    </Text>}
+
                             </View>
-                            <Text style={styles.logoText}>StudyAI</Text>
                         </View>
 
-                        <CustomButton
-                            title="Logout"
-                            variant="outline"
-                            size="small"
+                        <TouchableOpacity
                             onPress={handleLogout}
-                            icon={
-                                <Ionicons
-                                    name="log-out-outline"
-                                    size={16}
-                                    color={colors.primaryColor}
-                                    style={{ marginRight: 6 }}
-                                />
-                            }
-                        />
+                            style={[styles.logoutButton, {
+                                backgroundColor: isDark ? colors.cardBackground : colors.surface,
+                                borderColor: colors.border
+                            }]}
+                            activeOpacity={0.7}
+                            hitSlop={10}
+                        >
+                            <Ionicons
+                                name="log-out-outline"
+                                size={18}
+                                color={colors.primaryColor}
+                            />
+                        </TouchableOpacity>
                     </View>
 
                     {initialLoading ?
@@ -170,8 +200,9 @@ const HomeScreen = () => {
                             data={conversations}
                             contentContainerStyle={{ flex: 1 }}
                             keyExtractor={(item) => item?.id}
-                            renderItem={({ item }) => <ConversationItem
+                            renderItem={({ item, index }) => <ConversationItem
                                 item={item}
+                                index={index}
                                 onPress={() => {
                                     navigation.navigate('conversationScreen', { chatId: item?.id })
                                 }}
@@ -181,9 +212,9 @@ const HomeScreen = () => {
                                 <RefreshControl
                                     refreshing={refreshing}
                                     onRefresh={handleRefresh}
-                                    tintColor={"#6366f1"}
+                                    tintColor={colors.primaryColor}
                                     title="Pull to refresh"
-                                    titleColor={"#6366f1"}
+                                    titleColor={colors.primaryColor}
                                 />
                             }
                             ListEmptyComponent={
@@ -316,12 +347,45 @@ const HomeScreen = () => {
                     <TouchableOpacity
                         activeOpacity={0.9}
                         onPress={() => navigation.navigate('newChatScreen')}
-                        style={{ width: 55, height: 55, backgroundColor: colors.primaryColor, borderRadius: 20, alignItems: "center", justifyContent: "center", position: "absolute", bottom: 30, right: 0 }}>
-                        <Ionicons
-                            name="add"
-                            size={24}
-                            color={colors.background}
-                        />
+                        style={{
+                            width: 55,
+                            height: 55,
+                            borderRadius: 20,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            position: "absolute",
+                            bottom: 30,
+                            right: 10,
+                            shadowColor: colors.shadow,
+                            shadowOffset: {
+                                width: 0,
+                                height: 4,
+                            },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 8,
+                            elevation: 8,
+                        }}>
+                        <LinearGradient
+                            colors={isDark
+                                ? [colors.primaryColor, '#667eea', '#764ba2']
+                                : [colors.primaryColor, '#667eea', '#764ba2']
+                            }
+                            style={{
+                                width: 55,
+                                height: 55,
+                                borderRadius: 20,
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <Ionicons
+                                name="add"
+                                size={24}
+                                color="white"
+                            />
+                        </LinearGradient>
                     </TouchableOpacity>
 
                 </AbstractContentContainer>
@@ -338,23 +402,55 @@ const createStyles = (colors: any) => StyleSheet.create({
     gradient: {
         flex: 1,
     },
-    headerContent: {
+    compactHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingVertical: 12,
     },
-    logoContainer: {
+    headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
     },
-    logoBackground: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.secondaryColor,
+    logoContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 12,
+        shadowColor: colors.shadow,
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    brandContainer: {
+        flex: 1,
+    },
+    brandText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.text,
+        fontFamily: 'Poppins-Bold',
+        marginBottom: -2,
+    },
+    greetingText: {
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        opacity: 0.8,
+    },
+    logoutButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
         shadowColor: colors.shadow,
         shadowOffset: {
             width: 0,
@@ -364,11 +460,10 @@ const createStyles = (colors: any) => StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
     },
-    logoText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: colors.text,
-        fontFamily: 'Poppins-Bold',
+    headerContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     content: {
         flex: 1,
