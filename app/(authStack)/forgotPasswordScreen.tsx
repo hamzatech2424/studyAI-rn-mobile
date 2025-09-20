@@ -77,7 +77,6 @@ const ForgotPasswordScreen = () => {
 
     const continueToVerification = () => {
         console.log(initialValues.email, "initialValues.email==>>")
-        // navigation.navigate("resetPasswordVerificationScreen", { email: initialValues.email });
     };
 
     return (
