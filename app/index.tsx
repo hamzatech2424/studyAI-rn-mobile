@@ -2,7 +2,7 @@
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
@@ -27,8 +27,8 @@ export default function Index() {
   const [hasNavigated, setHasNavigated] = useState(false);
   const navigation = useNavigation();
 
-  console.log(isSignedIn,"isSignedIn==>>")
-  
+  console.log(isSignedIn, "isSignedIn==>>")
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -67,11 +67,31 @@ export default function Index() {
     if (isLoaded && !hasNavigated) {
       const timer = setTimeout(() => {
         setHasNavigated(true);
-        
+
         if (isSignedIn) {
-          navigation.navigate('appStack', { screen: 'homeScreen' })
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: 'appStack',
+                  params: { screen: 'homeScreen' }
+                }
+              ]
+            })
+          );
         } else {
-          navigation.navigate('authStack', { screen: 'signInScreen' })
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: 'authStack',
+                  params: { screen: 'signInScreen' }
+                }
+              ]
+            })
+          );
         }
       }, 2500);
 
@@ -93,8 +113,8 @@ export default function Index() {
     <View style={styles.container}>
       <StatusBar style={isDark ? "light" : "dark"} />
       <LinearGradient
-        colors={isDark 
-          ? [colors.background, colors.surface, colors.primaryDark] 
+        colors={isDark
+          ? [colors.background, colors.surface, colors.primaryDark]
           : [colors.primaryColor, colors.primaryLight, colors.accent]
         }
         start={{ x: 0, y: 0 }}
@@ -109,7 +129,7 @@ export default function Index() {
         </View>
 
         <View style={styles.content}>
-          <Animated.View 
+          <Animated.View
             style={[
               styles.iconContainer,
               {
@@ -122,10 +142,10 @@ export default function Index() {
             ]}
           >
             <View style={styles.iconBackground}>
-              <Ionicons 
-                name="library" 
-                size={80} 
-                color={isDark ? colors.primaryLight : '#ffffff'} 
+              <Ionicons
+                name="library"
+                size={80}
+                color={isDark ? colors.primaryLight : '#ffffff'}
               />
             </View>
           </Animated.View>
@@ -146,18 +166,18 @@ export default function Index() {
           </Animated.View>
         </View>
 
-        <Animated.View 
+        <Animated.View
           style={[
-            styles.loadingContainer, 
-            { 
+            styles.loadingContainer,
+            {
               bottom: insets.bottom + 20,
               opacity: fadeAnim
             }
           ]}
         >
-          <ActivityIndicator 
-            size="small" 
-            color={isDark ? colors.primaryLight : '#ffffff'} 
+          <ActivityIndicator
+            size="small"
+            color={isDark ? colors.primaryLight : '#ffffff'}
           />
           <Text style={styles.loadingText}>
             {!isLoaded ? 'Loading...' : isSignedIn ? 'Welcome back!' : 'Getting started...'}
@@ -222,14 +242,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 10,
+    // },
+    // shadowOpacity: 0.3,
+    // shadowRadius: 20,
+    // elevation: 10,
   },
   textContainer: {
     alignItems: 'center',

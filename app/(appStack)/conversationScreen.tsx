@@ -1,21 +1,23 @@
 import useConversationController from '@/controllerHooks/useConversationController';
 import { errorToast } from '@/utils';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { MotiView } from 'moti';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Linking, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
     GiftedChat
 } from 'react-native-gifted-chat';
 import Modal from 'react-native-modal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import WebView from 'react-native-webview';
 import PDFReader from 'rn-pdf-reader-js';
 import { useColors } from '../../hooks/useColors';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import AbstractContentContainer from '../components/abstract/abstractContentContainer';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,6 +42,36 @@ const ConversationScreen = () => {
     const [conversation, setConversation] = useState({});
     const [loading, setLoading] = useState(true);
     const navigation = useNavigation();
+
+    const [pdfViewerError, setPdfViewerError] = useState(false);
+    const [currentViewer, setCurrentViewer] = useState<'google' | 'mozilla' | 'direct'>('google');
+
+    const getPdfViewerUrl = (fileUrl: string, viewer: 'google' | 'mozilla' | 'direct') => {
+        switch (viewer) {
+            case 'google':
+                return `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fileUrl)}`;
+            case 'mozilla':
+                return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(fileUrl)}`;
+            case 'direct':
+                return fileUrl;
+            default:
+                return fileUrl;
+        }
+    };
+
+    const handlePdfError = () => {
+        if (currentViewer === 'google') {
+            setCurrentViewer('mozilla');
+            setPdfViewerError(false);
+        } else if (currentViewer === 'mozilla') {
+            setCurrentViewer('direct');
+            setPdfViewerError(false);
+        } else {
+            setPdfViewerError(true);
+        }
+    };
+
+    console.log(conversation?.document?.fileUrl, "conversation==>>")
 
 
     useEffect(() => {
@@ -67,7 +99,7 @@ const ConversationScreen = () => {
                     setLoading(false)
                 })
         }
-        else{
+        else {
             setConversation({})
             setLoading(false)
         }
@@ -281,8 +313,8 @@ const ConversationScreen = () => {
                                         />
                                     </LinearGradient>
                                 </View>
-                                <Text 
-                                    style={[styles.documentTitle, { color: colors.text }]} 
+                                <Text
+                                    style={[styles.documentTitle, { color: colors.text }]}
                                     numberOfLines={1}
                                 >
                                     {conversation?.title || "No Document"}
@@ -302,24 +334,50 @@ const ConversationScreen = () => {
                         isTyping={isTyping}
                         infiniteScroll
                         bottomOffset={-insets.bottom}
-                        placeholder="Type a message"
                         locale={"en"}
                         showUserAvatar={false}
                         alwaysShowSend={false}
-                        renderAvatar={() => <View style={{ width: 0 }} />}
+                        renderAvatar={(props) => {
+                            const isLeft = props.position === 'left';
+                            return (
+                                <LinearGradient
+                                    colors={['#667eea', '#764ba2']}
+                                    style={{
+                                        width: 25,
+                                        height: 25,
+                                        borderRadius: 17,
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    <MaterialCommunityIcons
+                                        name={isLeft ? "robot" : "person-outline"}
+                                        size={12}
+                                        color="white"
+                                    />
+                                </LinearGradient>
+                            );
+                        }}
+                        renderAvatarOnTop={true}
                         isScrollToBottomEnabled={false}
                         disableComposer={true}
                         renderComposer={renderComposer}
                         listViewProps={{
                             showsVerticalScrollIndicator: false,
+                            // backgroundColor: "red",
+                            // width: "100%",
                         }}
                         renderBubble={(props) => {
                             const isLeft = props.position === 'left';
                             return (
-                                <View style={styles.bubbleContainer}>
+                                <View 
+                                style={[
+                                    styles.bubbleContainer,
+                                    isLeft ? styles.leftBubbleContainer : styles.rightBubbleContainer
+                                ]}>
                                     <LinearGradient
-                                        colors={isLeft 
-                                            ? isDark 
+                                        colors={isLeft
+                                            ? isDark
                                                 ? ['#4A5568', '#2D3748', '#4A5568']
                                                 : ['#E2E8F0', '#CBD5E0', '#E2E8F0']
                                             : ['#667eea', '#764ba2']
@@ -341,9 +399,9 @@ const ConversationScreen = () => {
                                             styles.messageTime,
                                             { color: isLeft ? colors.placeholder : 'rgba(255,255,255,0.7)' }
                                         ]}>
-                                            {new Date(props.currentMessage?.createdAt).toLocaleTimeString('en-US', { 
-                                                hour: '2-digit', 
-                                                minute: '2-digit' 
+                                            {new Date(props.currentMessage?.createdAt).toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
                                             })}
                                         </Text>
                                     </LinearGradient>
@@ -382,14 +440,14 @@ const ConversationScreen = () => {
                             zIndex: 1000
                         }}>
                             <ActivityIndicator size="large" color={colors.primaryColor} />
-                            {/* <Text style={{
+                            <Text style={{
                                 marginTop: 5,
                                 color: colors.primaryColor,
                                 fontFamily: 'Poppins-Regular',
                                 fontSize: 16
                             }}>
                                 Loading...
-                            </Text> */}
+                            </Text>
                         </View>
                     )}
                     <View style={{ height: insets.bottom }} />
@@ -399,25 +457,104 @@ const ConversationScreen = () => {
             <Modal
                 isVisible={isModalVisible}
                 onBackdropPress={() => setIsModalVisible(false)}
+                backdropOpacity={0.1}
             >
-                <View style={{ width: width * 0.9, height: height * 0.7, backgroundColor: 'white', borderRadius: 10 }}>
-                    <PDFReader
-                        source={{
-                            uri: conversation?.document?.fileUrl,
-                        }}
-                        style={{ flex: 1, padding: 20 }}
-                        withPinchZoom
-                        maximumPinchZoomScale={2}
-                        onLoad={() => {
-                            console.log("onLoad")
-                        }}
-                        onLoadEnd={() => {
-                            console.log("onLoadEnd")
-                        }}
-                        onError={() => {
-                            console.log("onError")
-                        }}
-                    />
+                <View style={{ 
+                    width: width * 0.9, 
+                    height: height * 0.7, 
+                    backgroundColor: 'white', 
+                    borderRadius: 10,
+                    overflow: 'hidden' // This is key to clip the WebView content
+                }}>
+                    {pdfViewerError ? (
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                            <Text style={{ fontSize: 16, color: 'red', textAlign: 'center', marginBottom: 10 }}>
+                                Failed to load PDF
+                            </Text>
+                            <Text style={{ fontSize: 14, color: 'gray', textAlign: 'center', marginBottom: 20 }}>
+                                All PDF viewers failed to load this document.
+                            </Text>
+                            <TouchableOpacity
+                                style={{ 
+                                    padding: 10, 
+                                    backgroundColor: colors.primaryColor, 
+                                    borderRadius: 5,
+                                    marginBottom: 10
+                                }}
+                                onPress={() => {
+                                    setCurrentViewer('google');
+                                    setPdfViewerError(false);
+                                }}
+                            >
+                                <Text style={{ color: 'white' }}>Retry with Google Docs</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{ 
+                                    padding: 10, 
+                                    backgroundColor: colors.secondaryColor, 
+                                    borderRadius: 5 
+                                }}
+                                onPress={() => {
+                                    // Open in external browser as fallback
+                                    Linking.openURL(conversation?.document?.fileUrl || '');
+                                }}
+                            >
+                                <Text style={{ color: colors.primaryColor }}>Open in Browser</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        Platform.OS == "android" ? (
+                            <View style={{ flex: 1, borderRadius: 10, overflow: 'hidden' }}>
+                                <WebView
+                                    source={{ 
+                                        uri: getPdfViewerUrl(conversation?.document?.fileUrl || '', currentViewer)
+                                    }}
+                                    style={{ flex: 1 }}
+                                    onError={handlePdfError}
+                                    onHttpError={handlePdfError}
+                                    startInLoadingState={true}
+                                    renderLoading={() => (
+                                        <View style={{ 
+                                            position: 'absolute', 
+                                            top: 0, 
+                                            left: 0, 
+                                            right: 0, 
+                                            bottom: 0, 
+                                            justifyContent: 'center', 
+                                            alignItems: 'center',
+                                            backgroundColor: 'rgba(255,255,255,0.8)',
+                                            borderRadius: 10
+                                        }}>
+                                            <ActivityIndicator size="large" color={colors.primaryColor} />
+                                            <Text style={{ marginTop: 10, color: colors.text, fontFamily: 'Poppins-Regular' }}>
+                                                Loading PDF...
+                                            </Text>
+                                        </View>
+                                    )}
+                                />
+                            </View>
+                        ) : (
+                            <View style={{ flex: 1, borderRadius: 10, overflow: 'hidden' }}>
+                                <PDFReader
+                                    source={{
+                                        uri: conversation?.document?.fileUrl,
+                                    }}
+                                    style={{ flex: 1 }}
+                                    withPinchZoom
+                                    maximumPinchZoomScale={2}
+                                    onLoad={() => {
+                                        console.log("onLoad")
+                                    }}
+                                    onLoadEnd={() => {
+                                        console.log("onLoadEnd")
+                                    }}
+                                    onError={() => {
+                                        console.log("onError")
+                                    }}
+                                />
+                            </View>
+                        )
+                    )}
                 </View>
             </Modal>
         </View>
@@ -597,8 +734,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     documentTitleContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        width:"98%",
-        alignSelf:"center"
+        width: "95%",
+        alignSelf: "center",
     },
     documentTitleSkeleton: {
         height: 16,
@@ -621,21 +758,31 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontFamily: 'Poppins-Medium',
         flex: 1,
     },
-    
+
     // Message Bubble Styles
     bubbleContainer: {
-        marginVertical: 6,
-        maxWidth: '70%',
+        maxWidth: '75%',
+    },
+    leftBubbleContainer: {
+        alignSelf: 'flex-start',
+        marginBottom:10
+        // marginRight: 'auto',
+    },
+    rightBubbleContainer: {
+        alignSelf: 'flex-end',
+        marginBottom:10
+        // marginLeft: 'auto',
+        // marginRight: 0,
     },
     messageBubble: {
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderRadius: 18,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+        elevation: 1,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
     },

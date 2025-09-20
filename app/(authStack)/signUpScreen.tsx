@@ -106,6 +106,9 @@ const SignUpScreen = () => {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                     bounces={false}
+                    extraScrollHeight={120}
+                    enableAutomaticScroll={true}
+                    enableOnAndroid={true}
                 >
                     <View style={styles.content}>
                         {/* Header Section */}

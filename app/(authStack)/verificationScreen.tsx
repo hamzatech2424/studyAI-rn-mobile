@@ -1,7 +1,7 @@
 import { errorToast, successToast } from '@/utils';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
@@ -104,19 +104,25 @@ const VerificationScreen = () => {
             const signUpAttempt = await signUp.attemptEmailAddressVerification({
                 code: verificationCode,
             });
-        console.log(verificationCode, "verificationCode==>>")
-        console.log(signUpAttempt.status, "signUpAttempt==>>")
             if (signUpAttempt.status === 'complete') {
                 await setActive({ session: signUpAttempt.createdSessionId });
-                // Success - you might want to show a success toast here
-                // errorToast('Email verified successfully!'); // Uncomment if you want success toast
-                navigation.navigate('appStack', { screen: 'homeScreen' })
+                navigation.dispatch(
+                    CommonActions.reset({
+                        index: 0,
+                        routes: [
+                            {
+                                name: 'appStack',
+                                params: { screen: 'homeScreen' }
+                            }
+                        ]
+                    })
+                );
             } else {
                 errorToast('Verification failed. Please try again.');
             }
         } catch (error: any) {
             console.log('Verification error:', error);
-            
+
             // Handle different types of Clerk errors
             if (error.errors && error.errors.length > 0) {
                 const errorMessage = error.errors[0].longMessage || error.errors[0].message;
@@ -136,12 +142,12 @@ const VerificationScreen = () => {
             errorToast('Unable to resend code. Please try again.');
             return;
         }
-        
+
         if (!isLoaded) {
             errorToast('Authentication system is not ready. Please try again.');
             return;
         }
-        
+
         try {
             await signUp.create(params.userObject);
             await signUp?.prepareEmailAddressVerification({ strategy: "email_code" });
@@ -150,7 +156,7 @@ const VerificationScreen = () => {
             setCanResend(false);
         } catch (error: any) {
             console.log('Resend error:', JSON.stringify(error, null, 2));
-            
+
             if (error.errors && error.errors.length > 0) {
                 const errorMessage = error.errors[0].longMessage || error.errors[0].message;
                 errorToast(errorMessage);
@@ -179,6 +185,9 @@ const VerificationScreen = () => {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                     bounces={false}
+                    extraScrollHeight={insets.bottom}
+                    enableAutomaticScroll={true}
+                    enableOnAndroid={true}
                 >
                     <View style={styles.content}>
                         {/* Header Section */}

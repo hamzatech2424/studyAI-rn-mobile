@@ -94,6 +94,9 @@ const ForgotPasswordScreen = () => {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                     bounces={false}
+                    extraScrollHeight={insets.bottom}
+                    enableAutomaticScroll={true}
+                    enableOnAndroid={true}
                 >
                     <View style={styles.content}>
                         {/* Header Section */}

@@ -163,14 +163,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: 16,
-    shadowColor: colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    // shadowColor: colors.shadow,
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.05,
+    // shadowRadius: 2,
+    // elevation: 1,
     height: 60,
   },
   filledContainer: {
@@ -184,10 +184,10 @@ const createStyles = (colors: any) => StyleSheet.create({
   inputContainerFocused: {
     borderColor: colors.primaryColor,
     backgroundColor: colors.cardBackground,
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    shadowColor: colors.primaryColor,
+    // shadowOpacity: 0.15,
+    // shadowRadius: 12,
+    // elevation: 6,
+    // shadowColor: colors.primaryColor,
   },
   inputContainerError: {
     borderColor: colors.error,

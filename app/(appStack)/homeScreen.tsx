@@ -6,7 +6,7 @@ import { errorToast } from '@/utils';
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsFocused, useNavigation } from "@react-navigation/native";
+import { CommonActions, useIsFocused, useNavigation } from "@react-navigation/native";
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { MotiView } from "moti";
@@ -43,7 +43,7 @@ const HomeScreen = () => {
             syncUserHandler((data: any) => {
                 console.log("User Synced Successfully")
                 getConversationsHandler((data: any) => {
-                    console.log("Conversations Fetched Successfully", data)
+                    console.log("Conversations Fetched Successfully")
                     setInitialLoading(false)
                 },
                     (error: any) => {
@@ -78,7 +78,17 @@ const HomeScreen = () => {
                             await AsyncStorage.removeItem(TOKEN_KEY);
 
                             // Navigate to sign-in screen
-                            navigation.navigate('authStack', { screen: 'signInScreen' })
+                            navigation.dispatch(
+                                CommonActions.reset({
+                                    index: 0,
+                                    routes: [
+                                        {
+                                            name: 'authStack',
+                                            params: { screen: 'signInScreen' }
+                                        }
+                                    ]
+                                })
+                            );
                         } catch (error) {
                             console.log('Logout error:', error);
                             Alert.alert('Error', 'Failed to logout. Please try again.');
@@ -188,7 +198,7 @@ const HomeScreen = () => {
                                             height: 90,
                                             alignSelf: 'center',
                                             borderRadius: 16,
-                                            marginTop: 20,
+                                            marginTop: 10,
                                             backgroundColor: "lightgrey",
                                         }}
                                     />
@@ -355,7 +365,7 @@ const HomeScreen = () => {
                             justifyContent: "center",
                             position: "absolute",
                             bottom: 30,
-                            right: 10,
+                            right: 0,
                             shadowColor: colors.shadow,
                             shadowOffset: {
                                 width: 0,

@@ -50,7 +50,7 @@ const ConversationItem = ({ item,index, onPress }: { item: any, index: number, o
                 duration: 500,
                 delay: Math.random() * 150,
             }}
-            style={[styles.container, { marginTop: index === 0 ? 10 : 20 }]}
+            style={[styles.container, { marginTop:10 }]}
         >
             <TouchableOpacity
                 activeOpacity={0.9}
@@ -129,9 +129,9 @@ const ConversationItem = ({ item,index, onPress }: { item: any, index: number, o
                                             style={styles.messageTypeIcon}
                                         />
                                     </View>
-                                    <Text style={styles.messageType}>
+                                    {/* <Text style={styles.messageType}>
                                         {item?.lastMessageType?.toUpperCase() || 'CHAT'}
-                                    </Text>
+                                    </Text> */}
                                 </View>
                                 
                                 <Text 
@@ -179,19 +179,22 @@ export default ConversationItem;
 
 const createStyles = (colors: any) => StyleSheet.create({
     container: {
-        marginTop: 20,
+        // marginTop: 10,
+        
     },
     touchableContainer: {
         borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 6,
+        // shadowColor: '#000',
+        // shadowOffset: {
+        //     width: 0,
+        //     height: 4,
+        // },
+        // shadowOpacity: 0.15,
+        // shadowRadius: 4,
+        // elevation: 1,
         height: 90, // Set fixed height
+        width:"99%",
+        alignSelf:"center"
     },
     gradientContainer: {
         borderRadius: 16,
@@ -263,8 +266,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         marginRight: 8,
         backgroundColor: 'rgba(255,255,255,0.15)', // Add background for better visibility
-        paddingHorizontal: 6,
-        paddingVertical: 5,
+        padding:6,
         borderRadius: 8,
     },
     messageTypeIconContainer: {
@@ -274,7 +276,6 @@ const createStyles = (colors: any) => StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.3)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 6,
     },
     messageTypeIcon: {
         // Remove margin since it's now in a container

@@ -1,7 +1,7 @@
 import { errorToast } from '@/utils';
 import { useSignIn } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Formik } from 'formik';
@@ -58,7 +58,17 @@ const SignInScreen = () => {
 
             if (signInAttempt.status === 'complete') {
                 await setActive({ session: signInAttempt.createdSessionId });
-                navigation.navigate('appStack', { screen: 'homeScreen' })
+                navigation.dispatch(
+                    CommonActions.reset({
+                        index: 0,
+                        routes: [
+                            {
+                                name: 'appStack',
+                                params: { screen: 'homeScreen' }
+                            }
+                        ]
+                    })
+                );
             } else {
                 errorToast('Sign in failed. Please try again.');
             }
@@ -102,6 +112,9 @@ const SignInScreen = () => {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                     bounces={false}
+                    extraScrollHeight={insets.bottom}
+                    enableAutomaticScroll={true}
+                    enableOnAndroid={true}
                 >
                     <View style={styles.content}>
                         {/* Header Section */}

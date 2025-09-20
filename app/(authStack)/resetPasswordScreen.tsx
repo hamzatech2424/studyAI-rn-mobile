@@ -1,7 +1,7 @@
 import { errorToast, successToast } from '@/utils';
 import { useSignIn } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Formik } from 'formik';
@@ -126,14 +126,8 @@ const ResetPasswordScreen = () => {
             if (resetAttempt.status === 'complete') {
                 // Set the new session as active using the setActive function
                 await setActive({ session: resetAttempt.createdSessionId });
-
                 setPasswordReset(true);
                 successToast('Password updated successfully!');
-
-                // Navigate to home screen with valid session
-                // setTimeout(() => {
-                //     navigation.navigate('appStack', { screen: 'homeScreen' });
-                // }, 2000);
             } else {
                 errorToast('Password reset failed. Please try again.');
             }
@@ -187,7 +181,17 @@ const ResetPasswordScreen = () => {
     };
 
     const handleBackToSignIn = () => {
-        navigation.navigate('appStack', { screen: 'homeScreen' });
+        navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: 'appStack',
+                  params: { screen: 'homeScreen' }
+                }
+              ]
+            })
+          );
     };
 
     if (passwordReset) {
@@ -206,6 +210,9 @@ const ResetPasswordScreen = () => {
                         keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
                         bounces={false}
+                        extraScrollHeight={100}
+                        enableAutomaticScroll={true}
+                        enableOnAndroid={true}
                     >
                         <View style={styles.content}>
                             {/* Success Section */}
@@ -252,6 +259,11 @@ const ResetPasswordScreen = () => {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                     bounces={false}
+                    extraScrollHeight={50}
+                    enableAutomaticScroll={true}
+                    enableOnAndroid={true}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    style={{ flex: 1 }}
                 >
                     <View style={styles.content}>
                         {/* Header Section */}
