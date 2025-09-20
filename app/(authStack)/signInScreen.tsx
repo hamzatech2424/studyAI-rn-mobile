@@ -1,11 +1,12 @@
+import { errorToast } from '@/utils';
 import { useSignIn } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Formik } from 'formik';
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Yup from 'yup';
@@ -34,6 +35,7 @@ const SignInScreen = () => {
     const { colors, isDark } = useColors();
     const { isLoaded, signIn, setActive } = useSignIn();
     const [isLoading, setIsLoading] = useState(false);
+    const navigation = useNavigation();
     
     const initialValues: SignInFormValues = {
         email: '',
@@ -41,7 +43,10 @@ const SignInScreen = () => {
     };
 
     const handleSignIn = async (values: SignInFormValues) => {
-        if (!isLoaded) return;
+        if (!isLoaded) {
+            errorToast('Authentication system is not ready. Please try again.');
+            return;
+        }
         
         setIsLoading(true);
         
@@ -53,24 +58,33 @@ const SignInScreen = () => {
 
             if (signInAttempt.status === 'complete') {
                 await setActive({ session: signInAttempt.createdSessionId });
-                router.replace('/(appStack)/homeScreen');
+                navigation.navigate('appStack', { screen: 'homeScreen' })
             } else {
-                Alert.alert('Error', 'Sign in failed. Please try again.');
+                errorToast('Sign in failed. Please try again.');
             }
         } catch (error: any) {
-            console.error('Sign in error:', error);
-            Alert.alert('Error', error.errors?.[0]?.longMessage || 'Failed to sign in. Please try again.');
+            console.log('Sign in error:', error);
+            
+            // Handle different types of Clerk errors
+            if (error.errors && error.errors.length > 0) {
+                const errorMessage = error.errors[0].longMessage || error.errors[0].message;
+                errorToast(errorMessage);
+            } else if (error.message) {
+                errorToast(error.message);
+            } else {
+                errorToast('Failed to sign in. Please try again.');
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleForgotPassword = () => {
-        Alert.alert('Forgot Password', 'Password reset functionality will be implemented soon.');
+        navigation.navigate('forgotPasswordScreen');
     };
 
     const handleSignUp = () => {
-        router.push('/(authStack)/signUpScreen');
+        navigation.navigate('authStack', { screen: 'signUpScreen' })
     };
 
     return (

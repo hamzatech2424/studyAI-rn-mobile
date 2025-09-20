@@ -1,3 +1,4 @@
+import { errorToast } from '@/utils';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -5,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Formik } from 'formik';
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Yup from 'yup';
@@ -15,9 +16,12 @@ import CustomButton from '../components/abstract/abstractButton';
 import CustomTextInput from '../components/abstract/abstractTextInput';
 
 const SignUpSchema = Yup.object().shape({
-    name: Yup.string()
-        .min(2, 'Name must be at least 2 characters')
-        .required('Name is required'),
+    firstName: Yup.string()
+        .min(2, 'First name must be at least 2 characters')
+        .required('First name is required'),
+    lastName: Yup.string()
+        .min(2, 'Last name must be at least 2 characters')
+        .required('Last name is required'),
     email: Yup.string()
         .email('Please enter a valid email address')
         .required('Email is required'),
@@ -27,7 +31,8 @@ const SignUpSchema = Yup.object().shape({
 });
 
 interface SignUpFormValues {
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     password: string;
 }
@@ -38,7 +43,8 @@ const SignUpScreen = () => {
     const insets = useSafeAreaInsets();
     const { colors, isDark } = useColors();
     const initialValues: SignUpFormValues = {
-        name: '',
+        firstName: '',
+        lastName: '',
         email: '',
         password: '',
     };
@@ -47,27 +53,42 @@ const SignUpScreen = () => {
     const navigation = useNavigation();
 
     const handleSignUp = async (values: SignUpFormValues) => {
-        if (!isLoaded) return
+        if (!isLoaded) {
+            errorToast('Authentication system is not ready. Please try again.');
+            return;
+        }
+        
         try {
-            setLoading(true)
+            setLoading(true);
             let userObject = {
-                username: values.name,
+                firstName: values.firstName,
+                lastName: values.lastName,
                 emailAddress: values.email,
                 password: values.password,
-            }
-            await signUp.create(userObject)
-            await signUp.prepareEmailAddressVerification({ strategy: "email_code" })
+            };
+            
+            await signUp.create(userObject);
+            await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
             navigation.navigate('verificationScreen', { userObject });
-        } catch (error) {
-            console.log(JSON.stringify(error, null, 2))
-            Alert.alert(error.errors[0].longMessage)
+        } catch (error: any) {
+            console.log('SignUp Error:', JSON.stringify(error, null, 2));
+            
+            // Handle different types of Clerk errors
+            if (error.errors && error.errors.length > 0) {
+                const errorMessage = error.errors[0].longMessage || error.errors[0].message;
+                errorToast(errorMessage);
+            } else if (error.message) {
+                errorToast(error.message);
+            } else {
+                errorToast('An unexpected error occurred. Please try again.');
+            }
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     };
 
     const handleSignIn = () => {
-        Alert.alert('Sign In', 'Redirecting to sign in screen...');
+        navigation.navigate('signInScreen');
     };
 
     return (
@@ -124,17 +145,31 @@ const SignUpScreen = () => {
                                 }) => (
                                     <View>
                                         <CustomTextInput
-                                            label="UserName"
+                                            label="First Name"
                                             icon="person-outline"
-                                            placeholder="Enter your username"
+                                            placeholder="Enter your first name"
                                             autoCapitalize="words"
                                             autoCorrect={false}
-                                            value={values.name}
-                                            onChangeText={handleChange('name')}
-                                            onBlur={handleBlur('name')}
-                                            error={touched.name && errors.name ? errors.name : undefined}
+                                            value={values.firstName}
+                                            onChangeText={handleChange('firstName')}
+                                            onBlur={handleBlur('firstName')}
+                                            error={touched.firstName && errors.firstName ? errors.firstName : undefined}
                                         />
                                         <View style={{ height: 10 }} />
+                                        
+                                        <CustomTextInput
+                                            label="Last Name"
+                                            icon="person-outline"
+                                            placeholder="Enter your last name"
+                                            autoCapitalize="words"
+                                            autoCorrect={false}
+                                            value={values.lastName}
+                                            onChangeText={handleChange('lastName')}
+                                            onBlur={handleBlur('lastName')}
+                                            error={touched.lastName && errors.lastName ? errors.lastName : undefined}
+                                        />
+                                        <View style={{ height: 10 }} />
+                                        
                                         <CustomTextInput
                                             label="Email Address"
                                             icon="mail-outline"
@@ -148,6 +183,7 @@ const SignUpScreen = () => {
                                             error={touched.email && errors.email ? errors.email : undefined}
                                         />
                                         <View style={{ height: 10 }} />
+                                        
                                         <CustomTextInput
                                             label="Password"
                                             icon="lock-closed-outline"
@@ -160,12 +196,14 @@ const SignUpScreen = () => {
                                         />
 
                                         <CustomButton
-                                            title="Create Account"
+                                            title={loading ? "Creating Account..." : "Create Account"}
                                             onPress={() => handleSubmit()}
                                             loading={loading}
                                             fullWidth
                                             style={styles.signUpButton}
+                                            disabled={loading}
                                         />
+                                        
                                         <View style={styles.footer}>
                                             <Pressable onPress={handleSignIn}>
                                                 <Text style={styles.footerText}>
@@ -202,11 +240,11 @@ const createStyles = (colors: any) => StyleSheet.create({
         justifyContent: 'center',
     },
     header: {
-        marginBottom: 30,
+        marginBottom: 20,
         alignItems: 'center',
     },
     logoContainer: {
-        marginBottom: 24,
+        marginBottom: 10,
     },
     logoBackground: {
         width: 80,

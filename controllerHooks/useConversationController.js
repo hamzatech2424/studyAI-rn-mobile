@@ -1,6 +1,6 @@
 import { useApiClient } from "@/services/apiClient";
 import { useDispatch } from "react-redux";
-import { setAllConversations } from "../store/slices/conversationSlice";
+import { setAllConversations, setNewMessage } from "../store/slices/conversationSlice";
 
 const useConversationController = () => {
     const apiClient = useApiClient();
@@ -20,6 +20,7 @@ const useConversationController = () => {
             return error?.error?.message
         }
     }
+
 
     const getConversations = () => {
         return new Promise((resolve, reject) => {
@@ -58,7 +59,77 @@ const useConversationController = () => {
             })
     }
 
-    return { getConversationsHandler }
+    const getSingleConversation = (chatId) => {
+        return new Promise((resolve, reject) => {
+            apiClient.get(`/api/chat/single/${chatId}`)
+                .then(response => {
+                    if (response.status == 200) {
+                        if (response?.data?.success) {
+                            const successObject = {
+                                data: response?.data?.data?.chat,
+                                message: response?.data?.data?.message
+                            }
+                            resolve(successObject)
+                        }
+                    }
+                    else {
+                        reject("System not working");
+                    }
+                })
+                .then(response => {
+                    resolve(response?.data)
+                })
+                .catch(error => {
+                    reject(axiosErrorHandler(error))
+                })
+        })
+    }
+
+
+    const sendMessage = (chatId, message) => {
+        let body = {
+            question: message,
+            k: 10
+        }
+        return new Promise((resolve, reject) => {
+            apiClient.post(`/api/chat/message/${chatId}`, body)
+                .then(response => {
+                    if (response.status == 200) {
+                        if (response?.data?.success) {
+                            const successObject = {
+                                data: response?.data?.data?.chat,
+                                message: response?.data?.data?.message
+                            }
+                            resolve(successObject)
+                        }
+                    }
+                    else {
+                        reject("System not working");
+                    }
+                })
+                .then(response => {
+                    resolve(response?.data)
+                })
+                .catch(error => {
+                    reject(axiosErrorHandler(error))
+                })
+        })
+    }
+
+
+    const sendMessageHandler = (chatId, message, _callback = () => false, _errorCallback = () => false) => {
+        sendMessage(chatId, message)
+            .then(response => {
+                _callback(response?.data)
+                dispatch(setNewMessage(response?.data))
+            })
+            .catch(error => {
+                console.log(error,"error")
+                _errorCallback(error)
+            })
+    }
+
+    return { getConversationsHandler, getSingleConversation, sendMessageHandler }
 }
 
 export default useConversationController;

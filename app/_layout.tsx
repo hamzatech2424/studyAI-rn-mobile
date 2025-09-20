@@ -6,8 +6,8 @@ import {
   DefaultTheme,
   ThemeProvider
 } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
@@ -15,14 +15,14 @@ import 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast, { BaseToast, ErrorToast } from "react-native-toast-message";
 import { Provider } from 'react-redux';
+import AppStack from './(appStack)/_layout';
+import AuthStack from './(authStack)/_layout';
+import IndexScreen from './index';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
+const Stack = createStackNavigator();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -78,37 +78,53 @@ export default function RootLayout() {
       tokenCache={tokenCache}>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Provider store={store}>
-        <Stack
+        <Stack.Navigator
           screenOptions={{
             headerShown: false,
+            gestureEnabled: true,
+            gestureDirection: 'horizontal',
+            cardStyleInterpolator: ({ current, layouts }) => {
+              return {
+                cardStyle: {
+                  transform: [
+                    {
+                      translateX: current.progress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [layouts.screen.width, 0],
+                      }),
+                    },
+                  ],
+                },
+              };
+            },
           }}
           initialRouteName="index"
         >
-
           <Stack.Screen
             name="index"
+            component={IndexScreen}
             options={{
               title: "Splash",
-              animation: "fade",
+              animationTypeForReplace: 'push',
             }}
           />
           <Stack.Screen
-            name="(authStack)"
+            name="authStack"
+            component={AuthStack}
             options={{
               title: 'Auth',
-              animation: 'slide_from_right'
+              animationTypeForReplace: 'push',
             }}
           />
-
           <Stack.Screen
-            name="(appStack)"
+            name="appStack"
+            component={AppStack}
             options={{
               title: 'App',
-              animation: 'slide_from_right'
+              animationTypeForReplace: 'push',
             }}
           />
-
-        </Stack>
+        </Stack.Navigator>
         </Provider>
         <Toast
           visibilityTime={2000}

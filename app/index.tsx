@@ -2,8 +2,8 @@
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -25,6 +25,7 @@ export default function Index() {
   const { isDark, colors } = useColors();
   const { isSignedIn, isLoaded } = useAuth();
   const [hasNavigated, setHasNavigated] = useState(false);
+  const navigation = useNavigation();
 
   console.log(isSignedIn,"isSignedIn==>>")
   
@@ -32,6 +33,7 @@ export default function Index() {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+
 
   useEffect(() => {
     // Start animations
@@ -67,9 +69,9 @@ export default function Index() {
         setHasNavigated(true);
         
         if (isSignedIn) {
-          router.replace("/(appStack)/homeScreen");
+          navigation.navigate('appStack', { screen: 'homeScreen' })
         } else {
-          router.replace("/(authStack)/signInScreen");
+          navigation.navigate('authStack', { screen: 'signInScreen' })
         }
       }, 2500);
 

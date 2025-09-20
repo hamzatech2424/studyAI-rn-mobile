@@ -1,5 +1,5 @@
 import { errorToast, successToast } from '@/utils';
-import { useSignUp } from '@clerk/clerk-expo';
+import { useSignIn } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +12,7 @@ import { useColors } from '../../hooks/useColors';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import CustomButton from '../components/abstract/abstractButton';
 
-const VerificationScreen = () => {
+const ResetPasswordVerificationScreen = () => {
     const styles = useThemedStyles(createStyles);
     const route = useRoute();
     const params = route.params;
@@ -22,9 +22,8 @@ const VerificationScreen = () => {
     const [canResend, setCanResend] = useState(false);
     const [code, setCode] = useState(['', '', '', '', '', '']);
     const [isLoading, setIsLoading] = useState(false);
-    const { isLoaded, signUp, setActive } = useSignUp();
+    const { isLoaded, signIn } = useSignIn();
     const navigation = useNavigation();
-
     // Refs for each input
     const inputRefs = useRef<(TextInput | null)[]>([]);
 
@@ -101,21 +100,27 @@ const VerificationScreen = () => {
         setIsLoading(true);
 
         try {
-            const signUpAttempt = await signUp.attemptEmailAddressVerification({
+            console.log('Attempting password reset verification with code:', verificationCode);
+            
+            const resetAttempt = await signIn.attemptFirstFactor({
+                strategy: 'reset_password_email_code',
                 code: verificationCode,
+                password:"Hamza1538."
             });
-        console.log(verificationCode, "verificationCode==>>")
-        console.log(signUpAttempt.status, "signUpAttempt==>>")
-            if (signUpAttempt.status === 'complete') {
-                await setActive({ session: signUpAttempt.createdSessionId });
-                // Success - you might want to show a success toast here
-                // errorToast('Email verified successfully!'); // Uncomment if you want success toast
-                navigation.navigate('appStack', { screen: 'homeScreen' })
-            } else {
-                errorToast('Verification failed. Please try again.');
-            }
+            
+            console.log('Status:', resetAttempt.status);
+            
+            // if (resetAttempt.status === 'needs_new_password') {
+            //     // Navigate to reset password screen with the reset attempt
+            //     navigation.navigate('resetPasswordScreen', { 
+            //         resetAttempt,
+            //         email: params?.email 
+            //     });
+            // } else {
+            //     errorToast('Verification failed. Please try again.');
+            // }
         } catch (error: any) {
-            console.log('Verification error:', error);
+            console.error('Reset verification error:', error);
             
             // Handle different types of Clerk errors
             if (error.errors && error.errors.length > 0) {
@@ -132,7 +137,8 @@ const VerificationScreen = () => {
     };
 
     const handleResendCode = async () => {
-        if (!params) {
+        console.log(params?.email, "params==>>")
+        if (!params?.email) {
             errorToast('Unable to resend code. Please try again.');
             return;
         }
@@ -143,8 +149,11 @@ const VerificationScreen = () => {
         }
         
         try {
-            await signUp.create(params.userObject);
-            await signUp?.prepareEmailAddressVerification({ strategy: "email_code" });
+            await signIn.create({
+                strategy: 'reset_password_email_code',
+                identifier: params.email,
+            });
+            
             successToast('A new verification code has been sent to your email.');
             setTimeLeft(60);
             setCanResend(false);
@@ -160,7 +169,7 @@ const VerificationScreen = () => {
         }
     };
 
-    const handleBackToSignUp = () => {
+    const handleBackToForgotPassword = () => {
         navigation.goBack();
     };
 
@@ -186,17 +195,17 @@ const VerificationScreen = () => {
                             <View style={styles.logoContainer}>
                                 <View style={styles.logoBackground}>
                                     <Ionicons
-                                        name="mail"
+                                        name="key"
                                         size={32}
                                         color={colors.primaryColor}
                                     />
                                 </View>
                             </View>
                             <Text style={styles.title}>
-                                Verify Your Email
+                                Verify Reset Code
                             </Text>
                             <Text style={styles.subtitle}>
-                                We've sent a 6-digit verification code to your email address
+                                We've sent a 6-digit verification code to {params?.email || 'your email address'}
                             </Text>
                         </View>
 
@@ -229,25 +238,26 @@ const VerificationScreen = () => {
                             </View>
 
                             <CustomButton
-                                title="Verify Email"
+                                title={isLoading ? "Verifying..." : "Verify Code"}
                                 onPress={handleVerification}
                                 loading={isLoading}
                                 fullWidth
                                 style={styles.verifyButton}
+                                disabled={isLoading}
                             />
 
                             {/* Resend Code Section */}
                             <View style={styles.resendContainer}>
                                 {canResend ? (
                                     <TouchableOpacity
-                                        onPress={handleResendCode}
-                                        style={styles.resendButton}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.resendText}>
-                                            Resend Code
-                                        </Text>
-                                    </TouchableOpacity>
+                                    onPress={handleResendCode}
+                                    style={styles.resendButton}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={styles.resendText}>
+                                        Resend Code
+                                    </Text>
+                                </TouchableOpacity>
                                 ) : (
                                     <Text style={styles.timerText}>
                                         Resend code in {timeLeft}s
@@ -258,11 +268,11 @@ const VerificationScreen = () => {
 
                         {/* Footer */}
                         <View style={styles.footer}>
-                            <Pressable onPress={handleBackToSignUp}>
+                            <Pressable onPress={handleBackToForgotPassword}>
                                 <Text style={styles.footerText}>
                                     Didn't receive the code? {' '}
                                     <Text style={styles.backText}>
-                                        Back to Sign Up
+                                        Back to Forgot Password
                                     </Text>
                                 </Text>
                             </Pressable>
@@ -415,4 +425,5 @@ const createStyles = (colors: any) => StyleSheet.create({
         textDecorationLine: 'underline',
     },
 });
-export default VerificationScreen;
+
+export default ResetPasswordVerificationScreen;

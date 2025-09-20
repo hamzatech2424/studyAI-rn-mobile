@@ -6,7 +6,7 @@ import { Alert } from "react-native";
 import { BASE_URL } from "../proxy";
 
 let isHandlingSessionExpiry = false;
-const TOKEN_KEY = "API_JWT_TOKEN"; // storage key
+export const TOKEN_KEY = "API_JWT_TOKEN"; 
 
 export const useApiClient = () => {
   const { getToken, signOut } = useAuth();
