@@ -3,6 +3,7 @@ import React from 'react';
 import ConversationScreen from './conversationScreen';
 import HomeScreen from './homeScreen';
 import NewChatScreen from './newChatScreen';
+import ProfileScreen from './profileScreen';
 
 const Stack = createStackNavigator();
 
@@ -46,6 +47,13 @@ export default function AppStack() {
             <Stack.Screen 
                 name="newChatScreen" 
                 component={NewChatScreen}
+                options={{
+                    animationTypeForReplace: 'push',
+                }}
+            />
+            <Stack.Screen 
+                name="profileScreen" 
+                component={ProfileScreen}
                 options={{
                     animationTypeForReplace: 'push',
                 }}

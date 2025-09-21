@@ -162,21 +162,39 @@ const HomeScreen = () => {
                             </View>
                         </View>
 
-                        <TouchableOpacity
-                            onPress={handleLogout}
-                            style={[styles.logoutButton, {
-                                backgroundColor: isDark ? colors.cardBackground : colors.surface,
-                                borderColor: colors.border
-                            }]}
-                            activeOpacity={0.7}
-                            hitSlop={10}
-                        >
-                            <Ionicons
-                                name="log-out-outline"
-                                size={18}
-                                color={colors.primaryColor}
-                            />
-                        </TouchableOpacity>
+                        <View style={styles.headerRight}>
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('profileScreen')}
+                                style={[styles.profileButton, {
+                                    backgroundColor: isDark ? colors.cardBackground : colors.surface,
+                                    borderColor: colors.border
+                                }]}
+                                activeOpacity={0.7}
+                                hitSlop={10}
+                            >
+                                <Ionicons
+                                    name="person-outline"
+                                    size={18}
+                                    color={colors.primaryColor}
+                                />
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity
+                                onPress={handleLogout}
+                                style={[styles.logoutButton, {
+                                    backgroundColor: isDark ? colors.cardBackground : colors.surface,
+                                    borderColor: colors.border
+                                }]}
+                                activeOpacity={0.7}
+                                hitSlop={10}
+                            >
+                                <Ionicons
+                                    name="log-out-outline"
+                                    size={18}
+                                    color={colors.primaryColor}
+                                />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     {initialLoading ?
@@ -423,6 +441,11 @@ const createStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         flex: 1,
     },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
     logoContainer: {
         width: 36,
         height: 36,
@@ -453,6 +476,22 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: 12,
         fontFamily: 'Poppins-Regular',
         opacity: 0.8,
+    },
+    profileButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        shadowColor: colors.shadow,
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     logoutButton: {
         width: 40,
