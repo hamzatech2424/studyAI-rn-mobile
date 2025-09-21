@@ -226,6 +226,98 @@ const ConversationScreen = () => {
     }
 
 
+    const renderTypingIndicator = () => {
+        if (!isTyping) return null;
+        
+        return (
+            <MotiView
+                from={{ opacity: 0, translateY: 10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                exit={{ opacity: 0, translateY: -10 }}
+                transition={{
+                    type: "spring",
+                    duration: 500,
+                }}
+                style={styles.typingContainer}
+            >
+                <View style={styles.typingBubble}>
+                    <LinearGradient
+                        colors={isDark 
+                            ? ['#4A5568', '#2D3748', '#4A5568']
+                            : ['#E2E8F0', '#CBD5E0', '#E2E8F0']
+                        }
+                        style={styles.typingBubbleGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                    >
+                        <View style={styles.typingContent}>
+                            <View style={styles.typingAvatar}>
+                                <LinearGradient
+                                    colors={['#667eea', '#764ba2']}
+                                    style={styles.typingAvatarGradient}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="robot"
+                                        size={12}
+                                        color="white"
+                                    />
+                                </LinearGradient>
+                            </View>
+                            
+                            <View style={styles.typingDots}>
+                                <MotiView
+                                    animate={{
+                                        scale: [1, 1.2, 1],
+                                        opacity: [0.4, 1, 0.4],
+                                    }}
+                                    transition={{
+                                        type: "timing",
+                                        duration: 1000,
+                                        loop: true,
+                                    }}
+                                    style={[styles.typingDot, { backgroundColor: colors.primaryColor }]}
+                                />
+                                <MotiView
+                                    animate={{
+                                        scale: [1, 1.2, 1],
+                                        opacity: [0.4, 1, 0.4],
+                                    }}
+                                    transition={{
+                                        type: "timing",
+                                        duration: 1000,
+                                        loop: true,
+                                        delay: 200,
+                                    }}
+                                    style={[styles.typingDot, { backgroundColor: colors.primaryColor }]}
+                                />
+                                <MotiView
+                                    animate={{
+                                        scale: [1, 1.2, 1],
+                                        opacity: [0.4, 1, 0.4],
+                                    }}
+                                    transition={{
+                                        type: "timing",
+                                        duration: 1000,
+                                        loop: true,
+                                        delay: 400,
+                                    }}
+                                    style={[styles.typingDot, { backgroundColor: colors.primaryColor }]}
+                                />
+                            </View>
+                            
+                            <Text style={[styles.typingText, { color: colors.placeholder }]}>
+                                AI is typing...
+                            </Text>
+                        </View>
+                    </LinearGradient>
+                </View>
+            </MotiView>
+        );
+    };
+
+
+
+
     return (
         <View style={styles.container}>
             <StatusBar style={"auto"} />
@@ -362,6 +454,7 @@ const ConversationScreen = () => {
                         isScrollToBottomEnabled={false}
                         disableComposer={true}
                         renderComposer={renderComposer}
+                        renderTypingIndicator={renderTypingIndicator}
                         listViewProps={{
                             showsVerticalScrollIndicator: false,
                             // backgroundColor: "red",
@@ -809,6 +902,62 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontFamily: 'Poppins-Medium',
         opacity: 0.8,
         textAlign: 'right',
+    },
+    typingContainer: {
+        alignItems: 'flex-start',
+        marginBottom: 10,
+        marginHorizontal: 16,
+    },
+    typingBubble: {
+        maxWidth: '75%',
+        alignSelf: 'flex-start',
+    },
+    typingBubbleGradient: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 18,
+        borderTopLeftRadius: 6,
+        borderTopRightRadius: 18,
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 18,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    typingContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    typingAvatar: {
+        marginRight: 8,
+    },
+    typingAvatarGradient: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    typingDots: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    typingDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        marginHorizontal: 2,
+    },
+    typingText: {
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        fontStyle: 'italic',
+        opacity: 0.8,
     },
 });
 
