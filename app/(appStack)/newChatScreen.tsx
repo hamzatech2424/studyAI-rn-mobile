@@ -3,7 +3,7 @@ import { TOKEN_KEY } from '@/services/apiClient';
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -12,6 +12,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
     Alert,
     Animated,
+    BackHandler,
     Dimensions,
     StyleSheet,
     Text,
@@ -33,27 +34,79 @@ const NewChatScreen = () => {
     const { colors, isDark } = useColors();
     const { getToken } = useAuth();
     
-    const [selectedFile, setSelectedFile] = useState(null);
+    const [selectedFile, setSelectedFile] = useState<any>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadComplete, setUploadComplete] = useState(false);
     const [uploadMessage, setUploadMessage] = useState('');
-    const [conversationId, setConversationId] = useState(null);
+    const [conversationId, setConversationId] = useState<string | null>(null);
     const navigation = useNavigation();
     
     // Update the animated progress initialization:
     const animatedProgress = useRef(new Animated.Value(0)).current;
 
+    // Handle back button during upload
+    useFocusEffect(
+        useCallback(() => {
+            const onBackPress = () => {
+                if (isUploading || uploadingRef.current) {
+                    Alert.alert(
+                        'Upload in Progress',
+                        'Please wait for the upload to complete before going back. This will cancel the upload.',
+                        [
+                            {
+                                text: 'Continue Upload',
+                                style: 'cancel',
+                            },
+                            {
+                                text: 'Cancel Upload',
+                                style: 'destructive',
+                                onPress: () => {
+                                    // Cancel upload and go back
+                                    cancelUpload();
+                                    navigation.goBack();
+                                },
+                            },
+                        ]
+                    );
+                    return true; // Prevent default back behavior
+                }
+                return false; // Allow default back behavior
+            };
+
+            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            return () => subscription.remove();
+        }, [isUploading, navigation])
+    );
+
     // Add these refs to track state
     const progressRef = useRef(0);
     const messageRef = useRef('');
     const uploadingRef = useRef(false);
+    const xhrRef = useRef<XMLHttpRequest | null>(null); // Add ref to track XMLHttpRequest
 
     // Create a state update function that forces re-renders
     const forceUpdate = useState({})[1];
 
+    // Function to cancel upload
+    const cancelUpload = useCallback(() => {
+        if (xhrRef.current) {
+            xhrRef.current.abort();
+            xhrRef.current = null;
+        }
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadMessage('');
+        setUploadComplete(false);
+        setSelectedFile(null);
+        setConversationId(null);
+        uploadingRef.current = false;
+        progressRef.current = 0;
+        messageRef.current = '';
+    }, []);
+
     // Update the updateState function to include progress bar animation:
-    const updateState = useCallback((updates) => {
+    const updateState = useCallback((updates: any) => {
         console.log('🔄 Updating state:', updates);
         
         if (updates.progress !== undefined) {
@@ -95,7 +148,7 @@ const NewChatScreen = () => {
                 
                 // Check file size (4MB = 4 * 1024 * 1024 bytes)
                 const maxSize = 4 * 1024 * 1024; // 4MB in bytes
-                if (file.size > maxSize) {
+                if (file.size && file.size > maxSize) {
                     Alert.alert(
                         'File Too Large',
                         'Please select a PDF file that is 4MB or smaller.',
@@ -127,82 +180,55 @@ const NewChatScreen = () => {
     };
 
 
-    const startUpload = async (file) => {
+    const startUpload = async (file: any) => {
         try {
-            // Reset animated progress
-            animatedProgress.setValue(0);
-            
-            // Reset states
-            updateState({
-                uploading: true,
-                progress: 0,
-                message: 'Preparing upload...'
-            });
-
+          animatedProgress.setValue(0);
+          updateState({ uploading: true, progress: 0, message: "Preparing upload..." });
+      
           const token = await getStoredToken();
           const formData = new FormData();
           formData.append("file", {
             uri: file.uri,
             type: file.mimeType || "application/pdf",
             name: file.name,
-          });
+          } as any);
       
           return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
+            xhrRef.current = xhr; // Store reference to cancel if needed
             xhr.open("POST", `${BASE_URL}/api/document/upload-stream`);
             xhr.setRequestHeader("Authorization", `Bearer ${token}`);
             xhr.setRequestHeader("Accept", "text/event-stream");
-            
-            // Set timeout for the request (30 seconds)
-            xhr.timeout = 30000;
-            
-            // Handle timeout
-            xhr.ontimeout = () => {
-                console.error("❌ Request timeout");
-                updateState({
-                    uploading: false,
-                    message: 'Request timeout'
-                });
-                
-                // Use setTimeout to ensure Alert is shown after state update
-                setTimeout(() => {
-                    Alert.alert(
-                        "Request Timeout",
-                        "The server is taking too long to respond. Please check your connection and try again.",
-                        [
-                            {
-                                text: "Retry",
-                                onPress: () => {
-                                    setSelectedFile(null);
-                                    setUploadComplete(false);
-                                    setConversationId(null);
-                                }
-                            },
-                            {
-                                text: "Cancel",
-                                style: "cancel"
-                            }
-                        ]
-                    );
-                }, 100);
-                reject(new Error("Request timeout"));
-            };
       
-            // Local upload progress (file → server)
+            // ⏱️ Remove short timeout → extend for weak networks
+            xhr.timeout = 10 * 60 * 1000; // 10 minutes, adjust as needed
+      
+            // 🕑 Track last server event to detect stalls
+            let lastEventTime = Date.now();
+            const STALL_THRESHOLD = 30000; // 30s stall warning
+      
+            // Periodic check if stalled
+            const stallChecker = setInterval(() => {
+              if (Date.now() - lastEventTime > STALL_THRESHOLD && uploadingRef.current) {
+                updateState({
+                  message: "Connection is slow... still processing, please wait",
+                });
+              }
+            }, 10000);
+      
             xhr.upload.onprogress = (event) => {
               if (event.lengthComputable) {
                 const progress = Math.round((event.loaded / event.total) * 100);
-                        console.log(`📤 Upload progress: ${progress}%`);
-                        updateState({ 
-                            progress: Math.min(progress, 25), // Cap at 25% for file upload
-                            message: `Uploading file... ${progress}%` 
-                        });
+                updateState({
+                  progress: Math.min(progress, 25),
+                  message: `Uploading file... ${progress}%`,
+                });
               }
             };
       
-            // Server-sent events (processing progress)
             let buffer = "";
             xhr.onprogress = () => {
+              lastEventTime = Date.now(); // ✅ reset stall timer
               const chunk = xhr.responseText.substring(buffer.length);
               buffer += chunk;
       
@@ -211,241 +237,69 @@ const NewChatScreen = () => {
                 if (line.startsWith("data: ")) {
                   try {
                     const data = JSON.parse(line.slice(6));
-                                console.log("📊 Server progress:", data);
-                                
                     if (data.progress) {
-                                    // Map server progress to 25-100% range
-                                    const mappedProgress = Math.min(25 + (data.progress * 0.75), 100);
+                      const mappedProgress = Math.min(25 + data.progress * 0.75, 100);
                       updateState({
-                                        progress: mappedProgress,
-                                        message: data.message || `Processing... ${data.progress}%`,
+                        progress: mappedProgress,
+                        message: data.message || `Processing... ${data.progress}%`,
                       });
                     }
-                                
                     if (data.success) {
-                                    console.log("🎉 Upload successful:", data);
-                                    updateState({ 
-                                        uploading: false, 
-                                        progress: 100, 
-                                        message: data.message || "Upload completed!" 
-                                    });
+                      clearInterval(stallChecker);
+                      xhrRef.current = null; // Clear reference on success
+                      updateState({ uploading: false, progress: 100, message: data.message || "Upload completed!" });
                       setUploadComplete(true);
                       setConversationId(data.chat?.id);
                       resolve(data);
                     }
-                                
                     if (data.error) {
-                                    console.error("❌ Server error:", data.error);
-                                    updateState({
-                                        uploading: false,
-                                        message: 'Upload failed'
-                                    });
-                                    
-                                    // Show backend error to user
-                                    const errorMessage = data.error.message || data.error.details || data.error || "Upload failed";
-                                    console.log("🚨 Showing error alert:", errorMessage);
-                                    
-                                    // Use setTimeout to ensure Alert is shown after state update
-                                    setTimeout(() => {
-                                        Alert.alert(
-                                            "Upload Error",
-                                            errorMessage,
-                                            [
-                                                {
-                                                    text: "OK",
-                                                    onPress: () => {
-                                                        // Reset file selection on error
-                                                        setSelectedFile(null);
-                                                        setUploadComplete(false);
-                                                        setConversationId(null);
-                                                    }
-                                                }
-                                            ]
-                                        );
-                                    }, 100);
-                      reject(new Error(errorMessage));
+                      clearInterval(stallChecker);
+                      updateState({ uploading: false, message: "Upload failed" });
+                      reject(new Error(data.error));
                     }
-                  } catch (e) {
-                                console.error("❌ Parse error:", e, "Line:", line);
-                                // If we can't parse the response, it might be a server crash
-                                updateState({
-                                    uploading: false,
-                                    message: 'Server response error'
-                                });
-                                
-                                // Use setTimeout to ensure Alert is shown after state update
-                                setTimeout(() => {
-                                    Alert.alert(
-                                        "Server Error",
-                                        "The server returned an invalid response. This might indicate a server issue. Please try again later.",
-                                        [
-                                            {
-                                                text: "OK",
-                                                onPress: () => {
-                                                    setSelectedFile(null);
-                                                    setUploadComplete(false);
-                                                    setConversationId(null);
-                                                }
-                                            }
-                                        ]
-                                    );
-                                }, 100);
-                                reject(new Error("Invalid server response"));
+                  } catch {
+                    // ignore malformed SSE lines like ":ping"
                   }
                 }
               }
             };
       
-                xhr.onerror = () => {
-                    console.error("❌ Network error");
-                    updateState({
-                        uploading: false,
-                        message: 'Network error'
-                    });
-                    
-                    // Use setTimeout to ensure Alert is shown after state update
-                    setTimeout(() => {
-                        Alert.alert(
-                            "Connection Error",
-                            "Unable to connect to the server. This could be due to:\n\n• Poor internet connection\n• Server is down\n• Network firewall blocking the request\n\nPlease check your connection and try again.",
-                            [
-                                {
-                                    text: "Retry",
-                                    onPress: () => {
-                                        setSelectedFile(null);
-                                        setUploadComplete(false);
-                                        setConversationId(null);
-                                    }
-                                },
-                                {
-                                    text: "Cancel",
-                                    style: "cancel"
-                                }
-                            ]
-                        );
-                    }, 100);
-                    reject(new Error("Network error"));
-                };
-
-                xhr.onload = () => {
-                    if (xhr.status !== 200) {
-                        console.error("❌ HTTP error:", xhr.status);
-                        updateState({
-                            uploading: false,
-                            message: `HTTP error: ${xhr.status}`
-                        });
-                        
-                        let errorMessage = "Upload failed";
-                        let errorTitle = "Upload Error";
-                        
-                        if (xhr.status === 401) {
-                            errorMessage = "Your session has expired. Please login again.";
-                            errorTitle = "Authentication Error";
-                        } else if (xhr.status === 403) {
-                            errorMessage = "You don't have permission to upload files.";
-                            errorTitle = "Permission Denied";
-                        } else if (xhr.status === 413) {
-                            errorMessage = "File is too large. Please select a file smaller than 4MB.";
-                            errorTitle = "File Too Large";
-                        } else if (xhr.status === 415) {
-                            errorMessage = "Unsupported file type. Please select a PDF file.";
-                            errorTitle = "Invalid File Type";
-                        } else if (xhr.status === 429) {
-                            errorMessage = "Too many requests. Please wait a moment and try again.";
-                            errorTitle = "Rate Limited";
-                        } else if (xhr.status >= 500) {
-                            errorMessage = "The server is experiencing issues. Please try again in a few minutes.";
-                            errorTitle = "Server Error";
-                        } else if (xhr.status === 0) {
-                            errorMessage = "Unable to connect to the server. Please check your internet connection.";
-                            errorTitle = "Connection Failed";
-                        }
-                        
-                        console.log("🚨 Showing HTTP error alert:", errorMessage);
-                        
-                        // Use setTimeout to ensure Alert is shown after state update
-                        setTimeout(() => {
-                            Alert.alert(
-                                errorTitle,
-                                errorMessage,
-                                [
-                                    {
-                                        text: "OK",
-                                        onPress: () => {
-                                            setSelectedFile(null);
-                                            setUploadComplete(false);
-                                            setConversationId(null);
-                                        }
-                                    }
-                                ]
-                            );
-                        }, 100);
-                        reject(new Error(`HTTP error: ${xhr.status}`));
-                    }
-                };
-
-                console.log("🚀 Starting upload...");
+            xhr.onerror = () => {
+              clearInterval(stallChecker);
+              xhrRef.current = null; // Clear reference on error
+              updateState({ uploading: false, message: "Network error" });
+              reject(new Error("Network error"));
+            };
+      
+            xhr.ontimeout = () => {
+              clearInterval(stallChecker);
+              xhrRef.current = null; // Clear reference on timeout
+              updateState({ uploading: false, message: "Request timed out (slow connection)" });
+              reject(new Error("Request timeout"));
+            };
+      
+            xhr.onload = () => {
+              clearInterval(stallChecker);
+              if (xhr.status !== 200) {
+                reject(new Error(`HTTP error: ${xhr.status}`));
+              }
+            };
+      
             xhr.send(formData);
           });
-
-        } catch (err: any) {
-          console.error("❌ Upload failed:", err);
-            updateState({
-                uploading: false,
-                message: 'Upload failed'
-            });
-            
-            // Determine error type and show appropriate message
-            let errorMessage = "An unexpected error occurred. Please try again.";
-            let errorTitle = "Upload Error";
-            
-            if (err.message?.includes("timeout")) {
-                errorMessage = "The request timed out. Please check your connection and try again.";
-                errorTitle = "Request Timeout";
-            } else if (err.message?.includes("Network")) {
-                errorMessage = "Network error. Please check your internet connection.";
-                errorTitle = "Network Error";
-            } else if (err.message?.includes("server")) {
-                errorMessage = "Server error. Please try again later.";
-                errorTitle = "Server Error";
-            } else if (err.message) {
-                errorMessage = err.message;
-            }
-            
-            console.log("🚨 Showing catch error alert:", errorMessage);
-            
-            // Use setTimeout to ensure Alert is shown after state update
-            setTimeout(() => {
-                Alert.alert(
-                    errorTitle, 
-                    errorMessage,
-                    [
-                        {
-                            text: "Retry",
-                            onPress: () => {
-                                setSelectedFile(null);
-                                setUploadComplete(false);
-                                setConversationId(null);
-                            }
-                        },
-                        {
-                            text: "Cancel",
-                            style: "cancel"
-                        }
-                    ]
-                );
-            }, 100);
+        } catch (err) {
+          updateState({ uploading: false, message: "Upload failed" });
         }
       };
 
     const handleStartConversation = () => {
         if (uploadComplete && conversationId) {
-            navigation.navigate('conversationScreen', { chatId: conversationId })
+            (navigation as any).navigate('conversationScreen', { chatId: conversationId })
         }
     };
 
     // Update the getProgressStage function with user-friendly messages:
-    const getProgressStage = (progress) => {
+    const getProgressStage = (progress: number) => {
         if (progress < 10) return "Preparing...";
         if (progress < 25) return "Uploading file...";
         if (progress < 35) return "File received...";
@@ -458,7 +312,7 @@ const NewChatScreen = () => {
     };
 
     // Add this helper function:
-    const getProgressDescription = (progress) => {
+    const getProgressDescription = (progress: number) => {
         if (progress < 25) return "Your file is being uploaded securely...";
         if (progress < 50) return "AI is reading and understanding your document...";
         if (progress < 75) return "Organizing information for better conversations...";
@@ -483,18 +337,59 @@ const NewChatScreen = () => {
                     {/* Header */}
                     <View style={{ flexDirection: "row", height: 40, alignItems: 'center' }}>
                         <TouchableOpacity
-                            onPress={() => navigation.goBack()}
-                            style={{ width: 30, justifyContent: "center", alignItems: "flex-start" }}>
+                            onPress={() => {
+                                if (isUploading || uploadingRef.current) {
+                                    Alert.alert(
+                                        'Upload in Progress',
+                                        'Please wait for the upload to complete before going back. This will cancel the upload.',
+                                        [
+                                            {
+                                                text: 'Continue Upload',
+                                                style: 'cancel',
+                                            },
+                                            {
+                                                text: 'Cancel Upload',
+                                                style: 'destructive',
+                                                onPress: () => {
+                                                    // Cancel upload and go back
+                                                    cancelUpload();
+                                                    navigation.goBack();
+                                                },
+                                            },
+                                        ]
+                                    );
+                                } else {
+                                    navigation.goBack();
+                                }
+                            }}
+                            style={{ 
+                                width: 30, 
+                                justifyContent: "center", 
+                                alignItems: "flex-start",
+                                opacity: (isUploading || uploadingRef.current) ? 0.5 : 1
+                            }}
+                            disabled={false} // We handle the logic in onPress
+                        >
                             <Ionicons
                                 name="arrow-back-outline"
                                 size={24}
-                                color={colors.primaryColor}
+                                color={(isUploading || uploadingRef.current) ? colors.placeholder : colors.primaryColor}
                             />
                         </TouchableOpacity>
                         <View style={{ flex: 1, paddingLeft: 5, justifyContent: 'center' }}>
                             <Text style={{ fontSize: 20, fontFamily: 'Poppins-SemiBold', color: colors.text }}>
                                 New Chat
                             </Text>
+                            {(isUploading || uploadingRef.current) && (
+                                <Text style={{ 
+                                    fontSize: 12, 
+                                    fontFamily: 'Poppins-Regular', 
+                                    color: colors.primaryColor,
+                                    marginTop: 2
+                                }}>
+                                    Uploading...
+                                </Text>
+                            )}
                         </View>
                         <View style={{ width: 50 }} />
                     </View>
@@ -573,10 +468,10 @@ const NewChatScreen = () => {
                                         </View>
                                         <View style={styles.fileDetails}>
                                             <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2}>
-                                                {selectedFile?.name}
+                                                {selectedFile?.name || 'Unknown file'}
                                             </Text>
                                             <Text style={[styles.fileSize, { color: colors.placeholder }]}>
-                                                {(selectedFile?.size / 1024 / 1024).toFixed(2)} MB
+                                                {selectedFile?.size ? (selectedFile.size / 1024 / 1024).toFixed(2) : '0.00'} MB
                                             </Text>
                                         </View>
                                     </View>
@@ -631,6 +526,35 @@ const NewChatScreen = () => {
                                                 ]} />
                                             </View>
                                             
+                                            {/* Cancel Button */}
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    Alert.alert(
+                                                        'Cancel Upload',
+                                                        'Are you sure you want to cancel the upload?',
+                                                        [
+                                                            {
+                                                                text: 'Continue Upload',
+                                                                style: 'cancel',
+                                                            },
+                                                            {
+                                                                text: 'Cancel Upload',
+                                                                style: 'destructive',
+                                                                onPress: () => {
+                                                                    cancelUpload();
+                                                                },
+                                                            },
+                                                        ]
+                                                    );
+                                                }}
+                                                style={[styles.cancelButton, { 
+                                                    backgroundColor: colors.error || '#FF6B6B',
+                                                    marginBottom: 16
+                                                }]}
+                                            >
+                                                <Text style={styles.cancelButtonText}>Cancel Upload</Text>
+                                            </TouchableOpacity>
+
                                             {/* Progress Steps */}
                                             <View style={styles.progressSteps}>
                                                 {[
@@ -991,6 +915,18 @@ const createStyles = (colors: any) => StyleSheet.create({
     buttonContainer: {
         paddingHorizontal: 24,
         paddingBottom: 20,
+    },
+    cancelButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+        alignSelf: 'center',
+    },
+    cancelButtonText: {
+        color: 'white',
+        fontSize: 14,
+        fontFamily: 'Poppins-Medium',
+        textAlign: 'center',
     },
 });
 
