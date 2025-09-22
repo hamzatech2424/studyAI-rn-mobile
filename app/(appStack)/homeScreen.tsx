@@ -374,6 +374,7 @@ const HomeScreen = () => {
 
                     <TouchableOpacity
                         activeOpacity={0.9}
+                        disabled={initialLoading || refreshing}
                         onPress={() => navigation.navigate('newChatScreen')}
                         style={{
                             width: 55,
@@ -394,7 +395,7 @@ const HomeScreen = () => {
                             elevation: 8,
                         }}>
                         <LinearGradient
-                            colors={isDark
+                            colors={ initialLoading || refreshing ? ['#E2E8F0', '#CBD5E0', '#E2E8F0'] : isDark
                                 ? [colors.primaryColor, '#667eea', '#764ba2']
                                 : [colors.primaryColor, '#667eea', '#764ba2']
                             }

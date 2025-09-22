@@ -1,6 +1,7 @@
 import { logOut } from "@/controllerHooks/authController";
 import { useAuth } from "@clerk/clerk-expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import axios from "axios";
 import { Alert } from "react-native";
 import { BASE_URL } from "../proxy";
@@ -10,7 +11,7 @@ export const TOKEN_KEY = "API_JWT_TOKEN";
 
 export const useApiClient = () => {
   const { getToken, signOut } = useAuth();
-
+  const navigation = useNavigation();
   const api = axios.create({
     baseURL: BASE_URL,
   });
@@ -27,9 +28,20 @@ export const useApiClient = () => {
           text: "OK",
           onPress: async () => {
             try {
-              await AsyncStorage.removeItem(TOKEN_KEY);
+              await AsyncStorage.removeItem(TOKEN_KEY); // clear expired token
               await signOut();
               await logOut();
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: 'authStack',
+                      params: { screen: 'signInScreen' }
+                    }
+                  ]
+                })
+              );
             } finally {
               isHandlingSessionExpiry = false;
             }
@@ -78,11 +90,16 @@ export const useApiClient = () => {
 
   // Response interceptor
   api.interceptors.response.use(
-    (res) => res,
+    async (res) => {
+      // for testing purposes
+      // if (res.status === 200) {
+      //   await handleTokenExpiration();
+      // }
+      return res;
+    },
     async (error) => {
       if (error.response?.status === 401) {
         console.log("⚠️ Session expired, handling logout...");
-        await AsyncStorage.removeItem(TOKEN_KEY); // clear expired token
         await handleTokenExpiration();
       }
       return Promise.reject(error);
